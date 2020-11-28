@@ -9,9 +9,12 @@ import java.awt.Component;
 import java.awt.Point;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -19,6 +22,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListModel;
 import javax.swing.text.JTextComponent;
 
 /**
@@ -28,6 +32,9 @@ import javax.swing.text.JTextComponent;
 public class Reserve extends JFrame {
  Utility info;
  int numSeats;
+ int numRows;
+ int rowNumber;
+ int seatLetter;
  final Map<Point, Passenger> seats;
  DefaultListModel addedlistModel;
  DefaultListModel deflistModel;
@@ -43,12 +50,15 @@ public class Reserve extends JFrame {
     public Reserve() {
         initComponents();
         info = new Utility();
+        numSeats = 30;
+        // three seats A, B, C
+        numRows = numSeats / 3;
         this.seats = new HashMap<>();
-        jComboBox1.removeAllItems();
-        jComboBox1.addItem("--------");
-        jComboBox1.addItem("First");
-        jComboBox1.addItem("Business");
-        jComboBox1.addItem("Economy");
+        classSelections.removeAllItems();
+        classSelections.addItem("--------");
+        classSelections.addItem("First");
+        classSelections.addItem("Business");
+        classSelections.addItem("Economy");
         addedlistModel = new DefaultListModel();
         deflistModel = new DefaultListModel();
         deflistModel.addElement("");
@@ -67,18 +77,65 @@ public class Reserve extends JFrame {
          }
       }
     }
-    public void ReserveTicket(){
-       int aisleLetter = getAisleLetter(aisleLet.getText());
-       if(aisleLetter < 1 || aisleLetter > 8){
+    
+    // Exception Handler 
+    
+    public class TCAirplaneFullException extends Exception { 
+        public TCAirplaneFullException(String errorMessage) {
+            super(errorMessage);
+        }
+    }
+    
+    public void returnTicket(int row, int seatLet){
+        String message;
+        Passenger seat = seats.get(new Point(row, seatLet));
+        if(seat == null){
+            message = "Error: Seat at row " + row + " , seat " + seatLet + " is Empty.";
+            JOptionPane.showMessageDialog(null, message);
+        }
+        else{
+            // return the seat
+            seat = null;
+            message = "Success!: Seat at row " + row + " , seat " + seatLet + " returned.";
+            JOptionPane.showMessageDialog(null, message);
+        }
+    }
+    
+    
+    
+    public void PurchaseTicket() throws TCAirplaneFullException{
+       String message;
+        // if Airplane is full
+       if(seats.size() == numSeats ){
+           throw new TCAirplaneFullException("AirPlane is Full!!");
+       }
+       
+       int rowNumber = Integer.parseInt(aisleLet.getText());
+       if( rowNumber > numRows || rowNumber < 1 ){
+           message = "Row number must be 1-10";
+           JOptionPane.showMessageDialog(null, message);
+           clearFields();
            return;
        }
-       int seatNumber = Integer.parseInt(seatNum.getText());
-       if(seatNumber > 6 || seatNumber < 1){
+       int seatLetter = getSeatLetter(seatLet.getText());
+       if( seatLetter > 3 || seatLetter < 1 ){
+           message = "Seat letter must be A, B, or C";
+           JOptionPane.showMessageDialog(null, message);
+           clearFields();
            return;
-       }  
-       Passenger seat = seats.get(new Point(aisleLetter,seatNumber));
+       }
+       
+       Passenger seat = seats.get(new Point(rowNumber , seatLetter));
        if(seat == null){
+           
            Passenger passenger = new Passenger();
+           Economy flightClass;
+           Object classType = classSelections.getSelectedItem();
+           String classT = classType.toString();
+           // the addons from this customer such as the cookies, snacks, aisle seat
+           ListModel<String> preferences = addedJList.getModel();
+           int i; 
+           
            passenger.setCustomerName(jTextField1.getText());
            Ticket ticket = new Ticket();
            ticket.setStartingCity(jTextField2.getText());
@@ -87,23 +144,34 @@ public class Reserve extends JFrame {
            ticket.setDepartureDate(departDate.getText());
            ticket.setDepartureTime(departTime.getText());
            passenger.setTicket(ticket);
-           seats.put(new Point(aisleLetter,seatNumber), passenger);
-           String message = "Success: Seat Booked at " + aisleLet.getText()
-                  + seatNum.getText() + " by customer: " + passenger.getCustomerName();
-                  
+           seats.put(new Point(rowNumber ,seatLetter), passenger);
+            message = "Success: Seat Booked at row " + aisleLet.getText() + ", seat"
+                  + seatLet.getText() + " by customer: " + passenger.getCustomerName();
            JOptionPane.showMessageDialog(null, message);
+           // now fill text area with information here...
+           
+           detailsTextArea.setText("Previous Flight Details:\n" + 
+                   "Customer: " + passenger.getCustomerName() + "\n" + 
+                   "Starting City: " + passenger.getTicket().getStartingCity()+ "\n"+
+                   "Destination: " + passenger.getTicket().getDestination() + "\n" +
+                   "Flight Number: " + passenger.getTicket().getFlightNumber() + "\n"+
+                   "Departure Date: " + passenger.getTicket().getDepartureDate() + "\n" + 
+                   "Departure Time: " + passenger.getTicket().getDepartureTime() 
+                   
+                   );
+           //detailsTextArea
            clearFields();
        }
        // seat already taken
        else{
            //display joptionpane message (seat filled by: seat.getCustomerName) choose another please
            //then clear aisleLet and seatNum
-           String message = "Error: Seat Taken at " + aisleLet.getText()
-                  + seatNum.getText() + " by customer: " + seat.getCustomerName()
+           message = "Error: Seat Taken at row " + aisleLet.getText()
+                  + seatLet.getText() + " by customer: " + seat.getCustomerName()
                    + "\n Please enter another seat.";
            JOptionPane.showMessageDialog(null, message);
            aisleLet.setText("");
-           seatNum.setText("");
+           seatLet.setText("");
            
        }
 
@@ -112,9 +180,9 @@ public class Reserve extends JFrame {
    
     
     
-    public int getAisleLetter(String aisleLetter){
+    public int getSeatLetter(String seatLetter){
        int letter = 0;
-      switch(aisleLetter){
+      switch(seatLetter){
           case "A":
               letter = Aisle.AISLE_A;
               break;
@@ -124,25 +192,10 @@ public class Reserve extends JFrame {
           case "C":
               letter = Aisle.AISLE_C;
               break;
-          case "D":
-              letter = Aisle.AISLE_D;
-              break;
-          case "E":
-              letter = Aisle.AISLE_E;
-              break;
-          case "F":
-              letter = Aisle.AISLE_G;
-              break;
-          case "G":
-              letter = Aisle.AISLE_G;
-              break;
-          case "H":
-              letter = Aisle.AISLE_H;
-              break;
           default:
-           String message = "Please enter valid aisle letter. A-H";
+           String message = "Please enter valid seat letter. A-C";
            JOptionPane.showMessageDialog(null, message);
-           aisleLet.setText("");
+           seatLet.setText("");
            
       }
       return letter;
@@ -173,10 +226,10 @@ public class Reserve extends JFrame {
         departTime = new javax.swing.JTextField();
         jLabel11 = new javax.swing.JLabel();
         aisleLet = new javax.swing.JTextField();
-        jComboBox1 = new javax.swing.JComboBox<>();
+        classSelections = new javax.swing.JComboBox<>();
         jScrollPane1 = new javax.swing.JScrollPane();
         availJList = new javax.swing.JList<>();
-        seatNum = new javax.swing.JTextField();
+        seatLet = new javax.swing.JTextField();
         jLabel12 = new javax.swing.JLabel();
         jLabel13 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -186,6 +239,8 @@ public class Reserve extends JFrame {
         jButton3 = new javax.swing.JButton();
         jButton4 = new javax.swing.JButton();
         jPanel2 = new javax.swing.JPanel();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        detailsTextArea = new javax.swing.JTextArea();
         jButton1 = new javax.swing.JButton();
         jButton2 = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
@@ -218,15 +273,15 @@ public class Reserve extends JFrame {
 
         jLabel11.setText("Seat:");
 
-        jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        jComboBox1.addItemListener(new java.awt.event.ItemListener() {
+        classSelections.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        classSelections.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
-                jComboBox1ItemStateChanged(evt);
+                classSelectionsItemStateChanged(evt);
             }
         });
-        jComboBox1.addActionListener(new java.awt.event.ActionListener() {
+        classSelections.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jComboBox1ActionPerformed(evt);
+                classSelectionsActionPerformed(evt);
             }
         });
 
@@ -242,9 +297,9 @@ public class Reserve extends JFrame {
         });
         jScrollPane1.setViewportView(availJList);
 
-        jLabel12.setText("Aisle Letter");
+        jLabel12.setText("Row");
 
-        jLabel13.setText("Seat No.");
+        jLabel13.setText("Seat Letter");
 
         addedJList.setModel(new javax.swing.AbstractListModel<String>() {
             String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
@@ -304,17 +359,16 @@ public class Reserve extends JFrame {
                                     .addComponent(jLabel7))
                                 .addGap(18, 18, 18)
                                 .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(redPanelLayout.createSequentialGroup()
+                                        .addComponent(jLabel12)
+                                        .addGap(34, 34, 34)
+                                        .addComponent(jLabel13))
                                     .addComponent(departTime, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addGroup(redPanelLayout.createSequentialGroup()
                                         .addComponent(aisleLet, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                                         .addGap(40, 40, 40)
-                                        .addComponent(seatNum, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addGroup(redPanelLayout.createSequentialGroup()
-                                .addGap(98, 98, 98)
-                                .addComponent(jLabel12)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(jLabel13)))
+                                        .addComponent(seatLet, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                    .addComponent(classSelections, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
                         .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(redPanelLayout.createSequentialGroup()
                                 .addGap(66, 66, 66)
@@ -336,10 +390,11 @@ public class Reserve extends JFrame {
             redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(redPanelLayout.createSequentialGroup()
                 .addGap(7, 7, 7)
-                .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel3)
-                    .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel16))
+                .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel16)
+                    .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jLabel3)
+                        .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(redPanelLayout.createSequentialGroup()
@@ -363,14 +418,14 @@ public class Reserve extends JFrame {
                             .addComponent(departTime, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jLabel9))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(classSelections, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jLabel7))
                         .addGap(18, 18, 18)
                         .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(aisleLet, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jLabel11, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(seatNum, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(seatLet, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(redPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(jLabel12)
@@ -390,15 +445,19 @@ public class Reserve extends JFrame {
 
         jPanel2.setBorder(javax.swing.BorderFactory.createEtchedBorder());
 
+        detailsTextArea.setColumns(20);
+        detailsTextArea.setRows(5);
+        jScrollPane3.setViewportView(detailsTextArea);
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 213, Short.MAX_VALUE)
+            .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 242, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 156, Short.MAX_VALUE)
+            .addComponent(jScrollPane3)
         );
 
         jButton1.setText("Reserve");
@@ -439,17 +498,18 @@ public class Reserve extends JFrame {
                 .addComponent(redPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(18, 18, 18)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 20, Short.MAX_VALUE)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(jButton1)
                                 .addGap(39, 39, 39)
-                                .addComponent(jButton2))))
+                                .addComponent(jButton2))
+                            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(26, 26, 26))
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(79, 79, 79)
-                        .addComponent(jLabel1)))
-                .addGap(0, 34, Short.MAX_VALUE))
+                        .addGap(99, 99, 99)
+                        .addComponent(jLabel1)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -460,18 +520,18 @@ public class Reserve extends JFrame {
                 .addComponent(jLabel10, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(redPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
                         .addGap(30, 30, 30)
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addContainerGap())
-                    .addGroup(layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(redPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                        .addGap(42, 42, 42))))
         );
 
         pack();
@@ -483,23 +543,27 @@ public class Reserve extends JFrame {
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-        ReserveTicket();
+     try {
+         // TODO add your handling code here:
+         PurchaseTicket();
+     } catch (TCAirplaneFullException ex) {
+         Logger.getLogger(Reserve.class.getName()).log(Level.SEVERE, null, ex);
+     }
     }//GEN-LAST:event_jButton1ActionPerformed
 
-    private void jComboBox1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBox1ActionPerformed
+    private void classSelectionsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_classSelectionsActionPerformed
         // TODO add your handling code here:
         
 
-    }//GEN-LAST:event_jComboBox1ActionPerformed
+    }//GEN-LAST:event_classSelectionsActionPerformed
 
     private void departDateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_departDateActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_departDateActionPerformed
 
-    private void jComboBox1ItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_jComboBox1ItemStateChanged
+    private void classSelectionsItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_classSelectionsItemStateChanged
         // TODO add your handling code here:
-        Object selected = jComboBox1.getSelectedItem();
+        Object selected = classSelections.getSelectedItem();
         if(selected == null){
             return;
         }
@@ -507,6 +571,7 @@ public class Reserve extends JFrame {
         DefaultListModel listModel;
         listModel = new DefaultListModel();
         if(selected.toString().equals("First")){
+            
             listModel.addElement("Wine");
             listModel.addElement("Aisle Seat");
             listModel.addElement("Window Seat");
@@ -532,7 +597,7 @@ public class Reserve extends JFrame {
         }
        availJList.setModel(listModel);
        
-    }//GEN-LAST:event_jComboBox1ItemStateChanged
+    }//GEN-LAST:event_classSelectionsItemStateChanged
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
         // TODO add your handling code here:
@@ -568,13 +633,14 @@ public class Reserve extends JFrame {
     private javax.swing.JList<String> addedJList;
     private javax.swing.JTextField aisleLet;
     private javax.swing.JList<String> availJList;
+    private javax.swing.JComboBox<String> classSelections;
     private javax.swing.JTextField departDate;
     private javax.swing.JTextField departTime;
+    private javax.swing.JTextArea detailsTextArea;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton4;
-    private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
@@ -593,11 +659,12 @@ public class Reserve extends JFrame {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JTextField jTextField1;
     private javax.swing.JTextField jTextField2;
     private javax.swing.JTextField jTextField3;
     private javax.swing.JTextField jTextField4;
     private javax.swing.JPanel redPanel;
-    private javax.swing.JTextField seatNum;
+    private javax.swing.JTextField seatLet;
     // End of variables declaration//GEN-END:variables
 }

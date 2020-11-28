@@ -10,9 +10,11 @@ package airlinereserve;
  * @author nazwright
  */
 public class Ticket {
+    private String flightName;
     private String departureTime;
     private String flightNumber;
-    private String flightClass;
+    // can be of type economy, or its subclasses Economy name = new Business();
+    private Economy flightClass;
     private String startingCity;
     private String destination;
     private String departureDate;
@@ -49,14 +51,14 @@ public class Ticket {
     /**
      * @return the flightClass
      */
-    public String getFlightClass() {
+    public Economy getFlightClass() {
         return flightClass;
     }
 
     /**
      * @param flightClass the flightClass to set
      */
-    public void setFlightClass(String flightClass) {
+    public void setFlightClass(Economy flightClass) {
         this.flightClass = flightClass;
     }
 
@@ -118,4 +120,5 @@ public class Ticket {
     public String getDay(int day){
         return days[day];
     }
+   
 }
